@@ -68,3 +68,13 @@ No hay cuenta, sincronización entre dispositivos ni envío de datos. Borrar los
 ## Verificación
 
 Pruebas realizadas en Chrome headless con automatización externa al proyecto: totales de duración, recuperación tras intervalos largos, pausa, recarga, avance manual, sesión incompleta al saltar ejercicios, finalización de ambas rutinas, reinicio, finalización anticipada, borrado confirmado, cambio de idioma, movimiento reducido, almacenamiento bloqueado y ausencia de desbordamiento horizontal a 320 y 375 px. También se revisaron capturas de escritorio y móvil. La aplicación no tiene dependencias de pruebas.
+
+## Guía de afinación en directo
+
+En los bloques de falsete y canto, el pictograma se sustituye por un afinador cromático opcional. Pulsa **Activar micrófono** y canta una vocal sostenida: verás la nota más cercana con octava (Do/Do♯…Si en español; C/C♯…B en inglés), la desviación en cents y un indicador que se centra dentro de ±10 cents. La referencia es La4 = 440 Hz, con temperamento igual. No prescribe una nota objetivo ni evalúa la técnica vocal: compara el sonido con la nota cromática más cercana.
+
+La detección local estima la frecuencia fundamental entre 65 y 1200 Hz mediante diferencia normalizada YIN, con filtrado de silencio y suavizado de tres lecturas. Está pensada para una sola voz sostenida; ruido, acompañamiento, consonantes sin voz y sonidos complejos pueden impedir la lectura o provocar errores de octava. No hay grabación, reproducción del micrófono, almacenamiento ni envío de audio.
+
+El micrófono requiere autorización del navegador y un contexto seguro (GitHub Pages con HTTPS o localhost). Se apaga al pausar, salir del entrenamiento, finalizar, ocultar la pestaña o volver a bloques sin afinador. Denegar el permiso no interrumpe la rutina. Referencia de la API: [MDN: getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
+
+Verificado con señales de 82 a 1046 Hz, incluidos armónicos, a 44,1 y 48 kHz; silencio, conversión a nota, circuito Web Audio, rechazo de permisos y cierre de pistas. Se revisó el diseño móvil a 375 px. La precisión con una voz y un micrófono físicos depende del entorno y no se ha verificado en esta sesión.

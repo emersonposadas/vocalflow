@@ -56,3 +56,26 @@ main.training-screen{padding-top:24px;padding-bottom:24px;min-height:0;max-width
 .advance-option input{flex-shrink:0}
 .advance-option small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 @media(max-width:640px){.training-session .timer{width:135px;height:135px}.training-session .next{margin:5px 0}.advance-option{margin:4px 0 8px}}
+
+/* Live, local chromatic pitch guide. */
+.exercise-visual:has(.tuner){width:min(100%,360px)}
+.tuner{width:100%;margin:4px auto;text-align:center}
+.tuner-reading{display:flex;align-items:baseline;justify-content:center;gap:10px;min-height:33px}
+.tuner-reading strong{font-size:26px;font-weight:500;color:var(--mint)}
+.tuner-reading span{font-size:13px;color:var(--muted)}
+.pitch-meter{position:relative;height:6px;background:var(--border);margin:7px 12px;border-radius:6px}
+.pitch-center{position:absolute;left:40%;width:20%;height:100%;background:#b9efcc40}
+.pitch-meter i{position:absolute;top:-3px;width:3px;height:12px;background:#f0c49b;transform:translateX(-50%);transition:left .1s linear}
+.pitch-meter i.in-tune{background:var(--mint)}
+.tuner-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+.tuner button{font-size:13px;padding:7px 12px;margin-top:6px;min-height:36px}
+.tuner small{display:block;font-size:11px;color:var(--muted);margin:4px 0}
+@media(max-width:640px){
+ .training-session:has(.tuner) .timer{width:110px;height:110px}
+ .training-session:has(.tuner) .breath-orb{width:105px;height:105px}
+ .training-session:has(.tuner) .time{font-size:31px}
+ .training-session:has(.tuner) .phase{font-size:10px;max-width:95px;letter-spacing:0}
+ .training-session:has(.tuner) .training-head h1{font-size:20px;margin:6px 0}
+ .training-session:has(.tuner) .next{display:none}
+}
+@media(max-width:640px){.training-session:has(.tuner) .timer-caption{font-size:10px}}

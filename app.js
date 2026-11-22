@@ -72,6 +72,93 @@ function updateTip(e, elapsed, running) {
     : Math.min(1, elapsed < interval ? 1 : phase / .5, (interval - phase) / .5);
 }
 
+const tunerCopy = {
+  es: {on:'Activar micrófono',off:'Apagar micrófono',pending:'Cancelar solicitud',idle:'Tu nota en directo',listen:'Canta una vocal sostenida',privacy:'Solo en tu dispositivo · sin grabación',low:'Un poco baja',high:'Un poco alta',tuned:'Centrada',error:'No se pudo acceder al micrófono. Revisa los permisos y usa HTTPS o localhost.',label:'Afinación cromática',hint:'Nota más cercana · La4 = 440 Hz'},
+  en: {on:'Enable microphone',off:'Turn microphone off',pending:'Cancel request',idle:'Your live note',listen:'Sing a sustained vowel',privacy:'On your device only · no recording',low:'A little flat',high:'A little sharp',tuned:'In tune',error:'Microphone unavailable. Check permissions and use HTTPS or localhost.',label:'Chromatic tuning',hint:'Nearest note · A4 = 440 Hz'}
+};
+const tt = key => tunerCopy[data.settings.lang][key];
+let tuner = null, tunerPending = false, tunerRequest = 0;
+function tunerMarkup() {
+  return `<div class="tuner" aria-label="${tt('label')}"><div class="tuner-reading"><strong id="pitchNote">—</strong><span id="pitchStatus">${tt('idle')}</span><span id="pitchCents"></span></div><div class="pitch-meter" aria-hidden="true"><span class="pitch-center"></span><i id="pitchNeedle" hidden></i></div><div class="tuner-meta"><span>♭</span><span>${tt('hint')}</span><span>♯</span></div><button id="micToggle" type="button" aria-pressed="false">${tt('on')}</button><small>${tt('privacy')}</small></div>`;
+}
+// YIN normalized difference: choose the first reliable period, not a harmonic peak.
+function detectPitch(input, sampleRate) {
+  const size = Math.floor(input.length / 2), samples = new Float32Array(size);
+  let energy = 0, mean = 0;
+  for (let i=0;i<size;i++) { samples[i]=(input[i*2]+input[i*2+1])/2; mean+=samples[i]; }
+  mean/=size;
+  for (let i=0;i<size;i++) { samples[i]-=mean; energy+=samples[i]*samples[i]; }
+  if (Math.sqrt(energy/size)<.008) return null;
+  const rate=sampleRate/2, min=Math.floor(rate/1200), max=Math.min(Math.ceil(rate/65),Math.floor(size/2)), length=size-max;
+  const difference=new Float32Array(max+1); let sum=0;
+  for(let lag=1;lag<=max;lag++) {
+    let value=0;
+    for(let i=0;i<length;i++){const delta=samples[i]-samples[i+lag];value+=delta*delta;}
+    sum+=value; difference[lag]=sum ? value*lag/sum : 1;
+  }
+  for(let lag=Math.max(2,min);lag<max;lag++) {
+    if(difference[lag]>.12) continue;
+    while(lag+1<max && difference[lag+1]<difference[lag]) lag++;
+    const left=difference[lag-1],center=difference[lag],right=difference[lag+1];
+    const denominator=left-2*center+right;
+    const offset=denominator ? .5*(left-right)/denominator : 0;
+    const frequency=rate/(lag+offset);
+    return frequency>=65 && frequency<=1200 ? frequency : null;
+  }
+  return null;
+}
+function pitchInfo(frequency) {
+  const midi=69+12*Math.log2(frequency/440), nearest=Math.round(midi);
+  const labels=data.settings.lang==='es'?['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si']:['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+  return {note:labels[(nearest%12+12)%12]+(Math.floor(nearest/12)-1),cents:Math.round((midi-nearest)*100)};
+}
+function syncTuner() {
+  if(!$('micToggle')) return;
+  $('micToggle').textContent=tt(tuner?'off':tunerPending?'pending':'on');
+  $('micToggle').setAttribute('aria-pressed',String(!!tuner));
+  if(!tuner) {$('pitchNote').textContent='—';$('pitchStatus').textContent=tt('idle');$('pitchCents').textContent='';$('pitchNeedle').hidden=true;}
+}
+function stopTuner() {
+  tunerRequest++; tunerPending=false;
+  if(tuner){clearInterval(tuner.interval);tuner.stream.getTracks().forEach(track=>track.stop());tuner.source.disconnect();tuner.context.close().catch(()=>{});tuner=null;}
+  syncTuner();
+}
+async function toggleTuner() {
+  if(tuner || tunerPending){stopTuner();return;}
+  const request=++tunerRequest; tunerPending=true;syncTuner();
+  let stream,context;
+  try {
+    if(!navigator.mediaDevices?.getUserMedia) throw Error('unavailable');
+    const Audio=window.AudioContext||window.webkitAudioContext;
+    context=new Audio();await context.resume();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+    if(request!==tunerRequest || screen!=='training' || !$('micToggle')){stream.getTracks().forEach(track=>track.stop());await context.close();return;}
+    const source=context.createMediaStreamSource(stream),analyser=context.createAnalyser();
+    analyser.fftSize=4096;source.connect(analyser); // No connection to speakers: no feedback.
+    tuner={stream,context,source,analyser,buffer:new Float32Array(analyser.fftSize),recent:[]};
+    tunerPending=false;syncTuner();
+    stream.getTracks().forEach(track=>track.onended=()=>{if(tuner?.stream===stream)stopTuner();});
+    tuner.interval=setInterval(readPitch,100);
+  } catch {
+    stream?.getTracks().forEach(track=>track.stop());
+    if(context && context.state!=='closed')context.close().catch(()=>{});
+    if(request===tunerRequest){stopTuner();notify(tt('error'));}
+  }
+}
+function readPitch() {
+  if(!tuner || !$('pitchNote'))return;
+  tuner.analyser.getFloatTimeDomainData(tuner.buffer);
+  const frequency=detectPitch(tuner.buffer,tuner.context.sampleRate);
+  if(!frequency){tuner.recent=[];$('pitchNote').textContent='—';$('pitchCents').textContent='';$('pitchStatus').textContent=tt('listen');$('pitchNeedle').hidden=true;return;}
+  tuner.recent.push(frequency);if(tuner.recent.length>3)tuner.recent.shift();
+  const sorted=[...tuner.recent].sort((a,b)=>a-b),info=pitchInfo(sorted[Math.floor(sorted.length/2)]);
+  $('pitchNote').textContent=info.note;
+  $('pitchCents').textContent=`${info.cents>0?'+':''}${info.cents} ¢`;
+  $('pitchStatus').textContent=tt(Math.abs(info.cents)<=10?'tuned':info.cents<0?'low':'high');
+  $('pitchNeedle').hidden=false;$('pitchNeedle').style.left=`${50+info.cents}%`;
+  $('pitchNeedle').classList.toggle('in-tune',Math.abs(info.cents)<=10);
+}
+
 function renderTraining(){const s=data.session,e=current(),b=blocks[e.b];
 $('app').classList.add('training-screen');
 $('app').innerHTML=`<section class="card training-session">
@@ -79,7 +166,7 @@ $('app').innerHTML=`<section class="card training-session">
   <div class="timer-card">
     <div class="timer"><div class="breath-orb" id="breathOrb"></div><svg viewBox="0 0 280 280" aria-hidden="true"><circle cx="140" cy="140" r="130"/><circle id="timerRing" class="elapsed" cx="140" cy="140" r="130"/></svg><div class="timer-content"><div id="phase" class="phase" role="status"></div><div id="time" class="time" role="timer"></div><div class="timer-caption">${t('remaining')}</div></div></div>
     <div class="rotating-guide"><p id="rotatingTip" role="status" aria-live="polite" aria-atomic="true"></p><span id="tipPosition" class="muted" aria-hidden="true"></span></div>
-    <div class="exercise-visual">${e.b===2?'<div id="consonant" class="consonant"></div><p id="soundStage" class="muted" style="text-align:center"></p>':e.b===1?'<div class="motion"><svg viewBox="0 0 150 80" aria-hidden="true"><path id="motionPath"/><circle id="motionDot" r="6"/></svg></div>':e.b>=3?'<div class="motion" aria-hidden="true">'+Array.from({length:17},(_,i)=>`<i style="--i:${i};height:${15+Math.sin(i/16*Math.PI)*40}px"></i>`).join('')+'</div>':''}</div>
+    <div class="exercise-visual">${e.b===2?'<div id="consonant" class="consonant"></div><p id="soundStage" class="muted" style="text-align:center"></p>':e.b===1?'<div class="motion"><svg viewBox="0 0 150 80" aria-hidden="true"><path id="motionPath"/><circle id="motionDot" r="6"/></svg></div>':e.b>=3?tunerMarkup():''}</div>
   </div>
   <div class="session-progress"><div><div class="progress-heading"><span>${t('blockProgress')}</span><span id="blockPercent"></span></div><progress id="blockProgress" max="100" aria-label="${t('blockProgress')}"></progress></div><div><div class="progress-heading"><span>${t('progress')}</span><span id="percent"></span></div><progress id="progress" max="100" aria-label="${t('progress')}"></progress></div></div>
   <label class="advance-option"><input id="trainingAuto" type="checkbox" ${data.settings.auto?'checked':''}><span>${t('auto')}<small>${data.settings.lang==='es'?'Desactívalo para continuar con Siguiente.':'Turn off to continue with Next.'}</small></span></label>
@@ -87,20 +174,21 @@ $('app').innerHTML=`<section class="card training-session">
   <p class="next">${t('upNext')}: ${timeline(s.routine)[s.index+1]?tr(timeline(s.routine)[s.index+1].name):t('last')}</p>
   <div class="training-bottom"><button id="reset">${t('reset')}</button><button id="finish">${t('finish')}</button></div>
 </section>`;
+if(e.b<3)stopTuner();if($('micToggle')){$('micToggle').onclick=toggleTuner;syncTuner();}
 $('trainingAuto').onchange=event=>{tick();data.settings.auto=event.target.checked;$('auto').checked=data.settings.auto;save();updateDisplay();};$('previous').disabled=s.index===0;$('previous').onclick=()=>move(-1);$('next').onclick=()=>move(1);$('pause').onclick=togglePause;$('finish').onclick=()=>{pauseForDialog();if(confirm(t('confirmFinish')))finish();};$('reset').onclick=()=>{pauseForDialog();if(confirm(t('confirmReset'))){const routine=s.routine;finish(false);data.settings.routine=routine;start();}};updateDisplay();}
 function updateDisplay(){if(screen!=='training'||!data.session)return;const s=data.session,list=timeline(s.routine),e=list[s.index],elapsed=s.spent[s.index],remaining=e.duration-elapsed,percent=s.spent.reduce((a,x)=>a+x,0)/list.reduce((a,x)=>a+x.duration,0)*100;const blockTotal=list.filter(x=>x.b===e.b).reduce((a,x)=>a+x.duration,0),blockSpent=list.reduce((a,x,i)=>a+(x.b===e.b?s.spent[i]:0),0);updateTip(e,elapsed,s.running && remaining > 0);$('time').textContent=fmt(remaining);$('timerRing').style.strokeDashoffset=817*elapsed/e.duration;$('percent').textContent=`${Math.floor(percent)}%`;$('progress').value=percent;$('blockPercent').textContent=`${Math.floor(blockSpent/blockTotal*100)}%`;$('blockProgress').value=blockSpent/blockTotal*100;$('pause').textContent=t(s.running?'pause':'resume');$('pause').disabled=remaining<=0;$('pause').classList.toggle('primary',remaining>0);$('next').classList.toggle('primary',remaining<=0);$('next').textContent=t(s.index===list.length-1?'finish':'next');$('app').classList.toggle('paused',!s.running);let phase=remaining<=0?(s.index===list.length-1?t('ready'):t('waiting')):!s.running?t('paused'):tr(e.name);if(e.b===0){const cycle=elapsed%12;if(s.running&&remaining>0)phase=`${t(cycle<4?'inhale':'exhale')} · ${Math.ceil(cycle<4?4-cycle:12-cycle)} s`;$('breathOrb').style.setProperty('--breath',cycle<4?.7+.4*cycle/4:1.1-.4*(cycle-4)/8);}else{$('breathOrb').style.setProperty('--breath',1);}
 if(e.b===1){const paths=['M 20 35 C 20 0 130 0 130 35 C 130 70 20 70 20 35','M 20 35 C 20 0 130 0 130 35 C 130 70 20 70 20 35','M 75 35 C 0 -20 0 90 75 35 C 150 -20 150 90 75 35','M 75 35 C 20 -15 130 -15 75 35 C 20 85 130 85 75 35'];$('motionPath').setAttribute('d',paths[e.j]);$('motionDot').style.offsetPath=`path('${paths[e.j]}')`;$('motionDot').style.offsetDistance=`${(elapsed%8)/8*100*(e.j===1?-1:1)}%`;}
 if(e.b===2){const scaled=elapsed/e.duration*84,transition=scaled>=80,segment=Math.floor(scaled/10)%2,cycle=scaled%10,pair=[['F','V'],['S','Z'],['SH','ZH'],['CH','J'],['TH','TH']][e.j];$('consonant').textContent=pair[segment];$('soundStage').textContent=`${t(segment?'voiced':'unvoiced')} · ${t('repetition')} ${Math.min(4,Math.floor(scaled/20)+1)} / 4`;if(s.running&&remaining>0)phase=transition?t('transition'):cycle<5?t('long'):cycle<6?t('rest'):t('pulsed');}
 if($('phase').textContent!==phase)$('phase').textContent=phase;}
-function tick(now=Date.now()){const s=data.session;if(!s||!s.running)return;let delta=Math.max(0,(now-s.last)/1000);s.last=now;let changed=false;const list=timeline(s.routine);while(delta>0&&s.running){const e=list[s.index],room=Math.max(0,e.duration-s.spent[s.index]),used=Math.min(room,delta);s.spent[s.index]+=used;s.practiced+=used;delta-=used;if(s.spent[s.index]>=e.duration){chime();if(!data.settings.auto){s.running=false;break;}if(s.index===list.length-1){finish();return;}s.index++;changed=true;}else break;}save();if(changed&&screen==='training')renderTraining();updateDisplay();}
-function togglePause(){unlockAudio();tick();if(!data.session)return;data.session.running=!data.session.running;data.session.last=Date.now();save();updateDisplay();}
-function pauseForDialog(){tick();if(data.session){data.session.running=false;save();updateDisplay();}}
+function tick(now=Date.now()){const s=data.session;if(!s||!s.running)return;let delta=Math.max(0,(now-s.last)/1000);s.last=now;let changed=false;const list=timeline(s.routine);while(delta>0&&s.running){const e=list[s.index],room=Math.max(0,e.duration-s.spent[s.index]),used=Math.min(room,delta);s.spent[s.index]+=used;s.practiced+=used;delta-=used;if(s.spent[s.index]>=e.duration){chime();if(!data.settings.auto){s.running=false;stopTuner();break;}if(s.index===list.length-1){finish();return;}s.index++;changed=true;}else break;}save();if(changed&&screen==='training')renderTraining();updateDisplay();}
+function togglePause(){unlockAudio();tick();if(!data.session)return;data.session.running=!data.session.running;if(!data.session.running)stopTuner();data.session.last=Date.now();save();updateDisplay();}
+function pauseForDialog(){stopTuner();tick();if(data.session){data.session.running=false;save();updateDisplay();}}
 function move(direction){tick();const s=data.session;if(!s)return;const list=timeline(s.routine);if(direction>0&&s.index===list.length-1){pauseForDialog();if(s.spent.every((v,i)=>v>=list[i].duration)||confirm(t('confirmFinish')))finish();return;}s.index=Math.max(0,Math.min(list.length-1,s.index+direction));s.last=Date.now();if(s.spent[s.index]>=list[s.index].duration)s.running=false;else s.running=true;save();renderTraining();}
-function finish(show=true){const s=data.session;if(!s)return;const list=timeline(s.routine);const record={date:new Date().toISOString(),day:dateKey(),duration:s.practiced,routine:s.routine,complete:s.spent.every((v,i)=>v>=list[i].duration)};data.history.push(record);data.session=null;lastSummary=record;save();if(show){screen='summary';render();}}
+function finish(show=true){stopTuner();const s=data.session;if(!s)return;const list=timeline(s.routine);const record={date:new Date().toISOString(),day:dateKey(),duration:s.practiced,routine:s.routine,complete:s.spent.every((v,i)=>v>=list[i].duration)};data.history.push(record);data.session=null;lastSummary=record;save();if(show){screen='summary';render();}}
 function renderSummary(){const s=lastSummary;if(!s){screen='home';render();return;}$('app').innerHTML=`<section class="card summary"><div class="summary-icon" aria-hidden="true">${s.complete?'✧':'◌'}</div><span class="eyebrow">${t(s.complete?'complete':'incomplete')}</span><h1>${t(s.complete?'congrats':'partial')}</h1><p class="muted">${t('summary')}</p><div class="stats"><div class="stat"><strong>${fmt(s.duration)}</strong><span>${t('practice')}</span></div><div class="stat"><strong>${s.routine==='full'?24:10} min</strong><span>${t(s.routine)}</span></div></div><p class="tip">${t('gentle')}</p><button id="back" class="primary wide">${t('back')}</button></section>`;$('back').onclick=()=>navigate('home');}
 function renderHistory(){$('app').innerHTML=`<span class="eyebrow">VOCALFLOW · ${t('activity')}</span><h1>${t('history')}</h1><div class="workspace"><section class="card">${data.history.length?data.history.slice().reverse().map(x=>`<div class="history-row"><div>${new Date(x.date).toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'})}<small>${t(x.routine==='quick'?'quick':'full')}</small></div><span>${fmt(x.duration)}</span><span class="${x.complete?'pill':'muted'}">${t(x.complete?'complete':'incomplete')}</span></div>`).join(''):`<p class="empty">${t('empty')}</p>`}</section><aside class="card">${statHTML()}${calendar()}</aside></div>`;bindCalendar();}
 function navigate(next){if(screen==='training')pauseForDialog();screen=next;render();}
 function unlockAudio(){if(!data.settings.sound)return;try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio){audioContext??=new Audio();audioContext.resume().catch(()=>{});}}catch{}}
 function chime(){if(!data.settings.sound||!audioContext||audioContext.state!=='running')return;try{const oscillator=audioContext.createOscillator(),gain=audioContext.createGain(),now=audioContext.currentTime;oscillator.type='sine';oscillator.frequency.setValueAtTime(660,now);gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(.06,now+.03);gain.gain.exponentialRampToValueAtTime(.001,now+.5);oscillator.connect(gain);gain.connect(audioContext.destination);oscillator.start(now);oscillator.stop(now+.6);}catch{}}
 $('homeNav').onclick=()=>navigate('home');$('historyNav').onclick=()=>navigate('history');$('settingsNav').onclick=()=>{pauseForDialog();$('settings').showModal();};$('language').onchange=e=>{data.settings.lang=e.target.value;save();render();};$('sound').onchange=e=>{data.settings.sound=e.target.checked;unlockAudio();save();};$('auto').onchange=e=>{data.settings.auto=e.target.checked;if($('trainingAuto'))$('trainingAuto').checked=data.settings.auto;save();};$('clearHistory').onclick=()=>{if(confirm(t('confirmClear'))){data.history=[];save();render();notify(t('saved'));}};
-document.addEventListener('visibilitychange',()=>{tick();save();});window.addEventListener('pagehide',()=>{tick();save();});setInterval(()=>tick(),250);render();
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopTuner();tick();save();});window.addEventListener('pagehide',()=>{stopTuner();tick();save();});setInterval(()=>tick(),250);render();
