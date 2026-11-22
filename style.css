@@ -52,3 +52,7 @@ main.training-screen{padding-top:24px;padding-bottom:24px;min-height:0;max-width
  .training-session .next{margin:8px 0}
  .training-session .training-bottom{margin-top:8px;padding-top:8px}
 }
+.advance-option{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 12px;cursor:pointer;font-size:14px}
+.advance-option input{flex-shrink:0}
+.advance-option small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+@media(max-width:640px){.training-session .timer{width:135px;height:135px}.training-session .next{margin:5px 0}.advance-option{margin:4px 0 8px}}

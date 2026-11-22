@@ -37,6 +37,7 @@ Selecciona una rutina y comienza. El ejercicio cambia automáticamente al agotar
 
 - Pausar detiene el tiempo de práctica y las indicaciones. Abrir ajustes o salir a inicio/actividad pausa la sesión.
 - Recargar recupera el último progreso guardado **en pausa**. El tiempo con la página cerrada no se cuenta.
+- Puedes activar o desactivar **Avance automático** directamente bajo el temporizador o desde Ajustes; la preferencia se conserva entre sesiones. Al agotarse el tiempo en modo manual, se destaca **Siguiente** (o **Finalizar entrenamiento** en el último ejercicio).
 - Con avance automático desactivado, cada ejercicio espera a que pulses **Siguiente**. En el último ejercicio, ese botón muestra el resumen.
 - Anterior y Siguiente conservan el tiempo acreditado de cada ejercicio. Un ejercicio ya terminado aparece a cero; puedes continuar al siguiente. Saltar uno no acredita el tiempo que falta.
 - Solo se marca una sesión completa cuando todos sus ejercicios han agotado su duración. Finalizar antes guarda una sesión incompleta. Reiniciar guarda la práctica anterior y comienza otra desde cero.
