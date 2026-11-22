@@ -78,3 +78,9 @@ La detección local estima la frecuencia fundamental entre 65 y 1200 Hz mediante
 El micrófono requiere autorización del navegador y un contexto seguro (GitHub Pages con HTTPS o localhost). Se apaga al pausar, salir del entrenamiento, finalizar, ocultar la pestaña o volver a bloques sin afinador. Denegar el permiso no interrumpe la rutina. Referencia de la API: [MDN: getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
 
 Verificado con señales de 82 a 1046 Hz, incluidos armónicos, a 44,1 y 48 kHz; silencio, conversión a nota, circuito Web Audio, rechazo de permisos y cierre de pistas. Se revisó el diseño móvil a 375 px. La precisión con una voz y un micrófono físicos depende del entorno y no se ha verificado en esta sesión.
+
+## Mejoras de interacción
+
+La tecla Espacio pausa o reanuda el entrenamiento cuando el foco no está en otro control. Los botones distinguen **Saltar** (ejercicio pendiente) de **Siguiente** (ejercicio terminado), y conservan el foco al navegar. Los consejos reservan espacio para el texto más largo, evitando que los controles se desplacen durante la práctica. El inicio informa cuando existe una sesión guardada y el enlace del logotipo vuelve al inicio pausando la sesión.
+
+Revisión de interfaz: 19 ejercicios en español e inglés a 320, 375, 768 y 1440 px, con pruebas de teclado, foco, estabilidad de los consejos, reanudación y finalización.
