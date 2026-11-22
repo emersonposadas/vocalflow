@@ -65,7 +65,7 @@ main.training-screen{padding-top:24px;padding-bottom:24px;min-height:0;max-width
 .tuner-reading span{font-size:13px;color:var(--muted)}
 .pitch-meter{position:relative;height:6px;background:var(--border);margin:7px 12px;border-radius:6px}
 .pitch-center{position:absolute;left:40%;width:20%;height:100%;background:#b9efcc40}
-.pitch-meter i{position:absolute;top:-3px;width:3px;height:12px;background:#f0c49b;transform:translateX(-50%);transition:left .1s linear}
+.pitch-meter i{position:absolute;top:-3px;width:3px;height:12px;background:#f0c49b;transform:translateX(-50%);transition:left .3s ease-out,background-color .2s ease-out}
 .pitch-meter i.in-tune{background:var(--mint)}
 .tuner-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
 .tuner button{font-size:13px;padding:7px 12px;margin-top:6px;min-height:36px}

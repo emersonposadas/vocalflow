@@ -149,13 +149,18 @@ function readPitch() {
   if(!tuner || !$('pitchNote'))return;
   tuner.analyser.getFloatTimeDomainData(tuner.buffer);
   const frequency=detectPitch(tuner.buffer,tuner.context.sampleRate);
-  if(!frequency){tuner.recent=[];$('pitchNote').textContent='—';$('pitchCents').textContent='';$('pitchStatus').textContent=tt('listen');$('pitchNeedle').hidden=true;return;}
+  if(!frequency){tuner.recent=[];tuner.smoothedCents=null;tuner.lastNote=null;$('pitchNote').textContent='—';$('pitchCents').textContent='';$('pitchStatus').textContent=tt('listen');$('pitchNeedle').hidden=true;return;}
   tuner.recent.push(frequency);if(tuner.recent.length>3)tuner.recent.shift();
   const sorted=[...tuner.recent].sort((a,b)=>a-b),info=pitchInfo(sorted[Math.floor(sorted.length/2)]);
   $('pitchNote').textContent=info.note;
   $('pitchCents').textContent=`${info.cents>0?'+':''}${info.cents} ¢`;
   $('pitchStatus').textContent=tt(Math.abs(info.cents)<=10?'tuned':info.cents<0?'low':'high');
-  $('pitchNeedle').hidden=false;$('pitchNeedle').style.left=`${50+info.cents}%`;
+  // Dampen small pitch fluctuations while keeping the note and cents readout exact.
+  // Reset the filter on note changes: cents are relative to each note's center.
+  if(tuner.lastNote!==info.note || tuner.smoothedCents==null) tuner.smoothedCents=info.cents;
+  else tuner.smoothedCents+=(info.cents-tuner.smoothedCents)*.28;
+  tuner.lastNote=info.note;
+  $('pitchNeedle').hidden=false;$('pitchNeedle').style.left=`${50+tuner.smoothedCents}%`;
   $('pitchNeedle').classList.toggle('in-tune',Math.abs(info.cents)<=10);
 }
 
