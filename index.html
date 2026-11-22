@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101916"><meta name="description" content="VocalFlow: entrenamiento diario de respiración, cuerpo y voz.">
+<title>VocalFlow — Daily Vocal Training</title><link rel="stylesheet" href="./style.css"><script src="./app.js" defer></script>
+</head>
+<body>
+<header><a class="brand" href="./" aria-label="VocalFlow"><span class="brand-icon">∿</span> VocalFlow<span class="brand-sub">DAILY VOCAL TRAINING</span></a><nav><button id="homeNav"></button><button id="historyNav"></button><button id="settingsNav"></button></nav></header>
+<main id="app"></main>
+<footer><span>VocalFlow</span><span id="footerText"></span><span class="footer-mark">BREATHE. MOVE. SING.</span></footer>
+<dialog id="settings"><form method="dialog"><div class="section-heading"><h2 id="settingsTitle"></h2><button aria-label="Cerrar / Close" value="close">×</button></div><label><span id="languageLabel"></span><select id="language"><option value="es">Español</option><option value="en">English</option></select></label><label><span id="soundLabel"></span><input id="sound" type="checkbox"></label><label><span id="autoLabel"></span><input id="auto" type="checkbox"></label><p id="storageNote" class="muted"></p><button id="clearHistory" type="button" class="danger"></button></form></dialog>
+<p id="notice" role="status"></p>
+</body></html>
