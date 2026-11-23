@@ -2,7 +2,7 @@
 
 Entrenamiento vocal guiado en español e inglés. Elige **10 o 24 minutos** y sigue cinco bloques: respiración, movilidad de caderas, consonantes, falsete y canción.
 
-Cada ejercicio muestra una figura con la posición de brazos y piernas, una instrucción breve y un temporizador. Las indicaciones permanecen visibles mientras practicas.
+Cada ejercicio muestra una figura con la posición de brazos y piernas, una instrucción breve y un temporizador. La guía principal permanece visible mientras practicas. En los ejercicios vocales, puedes desplegar la postura corporal y el afinador cuando los necesites.
 
 ## Empezar
 
@@ -16,7 +16,8 @@ Visita `http://localhost:8000`. No necesita instalación ni backend.
 
 - **Pausar / Continuar:** controla el tiempo; también puedes usar Espacio.
 - **Anterior / Saltar:** cambia de ejercicio. Saltar no cuenta como completarlo.
-- **Avance automático:** desactívalo si prefieres pasar al siguiente manualmente.
+- **Opciones de sesión:** permite cambiar el avance automático, reiniciar o finalizar.
+- **Guía vocal:** las consonantes alternan 6 segundos de sonido y 4 de descanso, sin acelerar las indicaciones en la rutina rápida. El círculo muestra el tiempo; el ejemplo visual indica qué sonido hacer.
 - **Afinador opcional:** en falsete y canción, despliega el panel y activa el micrófono para ver la nota más cercana. No reproduce un ejemplo ni evalúa tu técnica.
 
 La sesión se recupera en pausa al recargar. Ajustes permite cambiar el idioma, los sonidos y borrar el historial.
