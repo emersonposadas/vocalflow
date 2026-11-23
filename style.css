@@ -184,3 +184,47 @@ main.training-screen{max-width:1100px;min-height:0;padding:20px 28px}
  .vocal-guide>p{font-size:14px;margin-top:8px}
 }
 @media(max-width:360px) and (max-height:720px){main.training-screen{padding-top:6px;padding-bottom:6px}.coach{gap:6px}}
+
+/* Use the available width instead of stacking the workout like a phone screen. */
+@media(min-width:641px){
+ main.training-screen{max-width:1440px;padding:16px 28px}
+ .coach,.coach.with-score,.coach:not(.with-score){display:grid;grid-template-columns:minmax(0,1fr) 220px;grid-template-rows:auto auto minmax(0,1fr);gap:16px 32px;min-height:0}
+ .coach .coach-top{grid-column:1 / -1;grid-row:1}
+ .coach .coach-heading{grid-column:1 / -1;grid-row:2}
+ .coach .coach-stage{grid-column:1;grid-row:3;min-width:0;align-self:start}
+ .coach .coach-bottom{grid-column:2;grid-row:3;align-self:center;margin:0;padding-left:24px;border-left:1px solid var(--border)}
+ .coach .coach-controls{grid-template-columns:1fr;gap:12px}
+ .coach .coach-next{display:block;margin-top:18px;line-height:1.5}
+ .coach .posture-guide{width:100%;max-width:800px}
+ .coach .vocal-guide{max-width:none}
+ .with-score #scoreSvg{height:auto;aspect-ratio:16 / 5;max-height:340px}
+ .coach .score-tools{flex-wrap:wrap}
+ .coach .score-tools button{min-width:0}
+}
+@media(min-width:641px) and (max-width:900px){
+ main.training-screen{padding:10px 16px}
+ .coach,.coach.with-score,.coach:not(.with-score){grid-template-columns:minmax(0,1fr) 160px;gap:10px 16px}
+ .coach .coach-bottom{padding-left:16px}
+ .coach-heading h1{font-size:24px}
+ .practice-score{padding:12px}
+ .score-lyrics{font-size:24px;gap:8px}
+ .score-instruction{font-size:13px}
+ .coach .score-tools{gap:4px;flex-wrap:nowrap}
+ .coach .score-tools button{font-size:13px;padding:8px;flex:1}
+}
+@media(min-width:641px) and (max-height:550px){
+ main.training-screen{padding:6px 16px}
+ .coach,.coach.with-score,.coach:not(.with-score){gap:4px 16px;grid-template-columns:minmax(0,1fr) 160px}
+ .coach .coach-top{height:36px}
+ .coach-heading h1{font-size:22px;margin:4px 0}
+ .coach-heading .eyebrow{font-size:10px}
+ .coach-clock #time{font-size:28px}
+ .with-score #scoreSvg{height:110px;aspect-ratio:auto}
+ .coach .coach-next{display:none}
+ .practice-score,.with-score .practice-score{padding:6px 10px}
+ .coach .score-tools{margin:0}
+ .voice-status{height:20px;font-size:12px}
+ .score-top{height:20px}
+ .score-lyrics{min-height:28px}
+ .coach #scoreCue{margin:0;height:20px;line-height:20px}
+}
