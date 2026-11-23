@@ -187,3 +187,25 @@ body:has(.training-screen)>footer{display:none}
  .tuner{padding:5px}
  .tuner-reading{flex-wrap:wrap;gap:4px}
 }
+
+.vocal-guide{border:1px solid var(--border);border-radius:16px;padding:18px;margin:16px 0;background:#10191660}
+.vocal-guide h2{font-size:16px;color:var(--mint);margin:0 0 12px}
+.vocal-example{display:flex;align-items:center;gap:24px}
+.mouths{display:flex;justify-content:center;gap:10px;flex:0 1 230px}
+.mouth-example{text-align:center;flex:1;min-width:0}
+.mouth-example svg{display:block;width:80px;max-width:100%;margin:auto;fill:none;stroke:var(--mint);stroke-width:3;stroke-linejoin:round}
+.mouth-example .tongue{fill:#7fa78c;stroke:var(--text)}
+.mouth-example span{display:block;font-size:14px;line-height:1.4}
+.vocal-pattern{flex:1;min-width:0;text-align:center}
+.voice-pair{display:flex;justify-content:center;gap:16px}
+.voice-pair>span{padding:6px 12px;border:1px solid var(--border);border-radius:10px;font-size:24px}
+.voice-pair>span.active{border-color:var(--mint);background:#b9efcc15}
+.voice-pair small{display:block;font-size:14px;color:var(--muted)}
+.sound-pattern{margin-top:10px;min-height:24px;font-size:18px;color:var(--mint)}
+.pitch-example{display:flex;gap:8px;align-items:stretch}
+.pitch-labels{display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--muted);padding:12px 0}
+.pitch-example svg{width:100%;min-width:0;max-height:85px;fill:none;stroke:var(--mint);stroke-width:3;stroke-linecap:round}
+.vocal-pattern>small{font-size:12px;color:var(--muted);display:block;line-height:1.4}
+.syllable-example{font-size:18px;color:var(--mint);line-height:1.6}
+.vocal-guide>p{font-size:14px;line-height:1.5;margin:12px 0 0;color:var(--muted)}
+@media(max-width:640px){.vocal-guide{padding:14px}.vocal-example{flex-direction:column;gap:12px}.mouths{flex:auto;width:100%;max-width:240px}.vocal-pattern{width:100%}.mouth-example svg{width:65px}}
