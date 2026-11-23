@@ -111,7 +111,46 @@ const tunerCopy = {
 const tt = key => tunerCopy[data.settings.lang][key];
 let tuner = null, tunerPending = false, tunerRequest = 0;
 function tunerMarkup() {
-  return `<div class="tuner" aria-label="${tt('label')}"><div class="tuner-reading"><strong id="pitchNote">—</strong><span id="pitchStatus">${tt('idle')}</span><span id="pitchCents"></span></div><div class="pitch-meter" aria-hidden="true"><span class="pitch-center"></span><i id="pitchNeedle" hidden></i></div><div class="tuner-meta"><span>♭</span><span>${tt('hint')}</span><span>♯</span></div><button id="micToggle" type="button" aria-pressed="false">${tt('on')}</button><small>${tt('privacy')}</small></div>`;
+  const es=data.settings.lang==='es';
+  const ticks=Array.from({length:21},(_,i)=>`<line class="dial-tick" data-tick="${i}" x1="100" y1="22" x2="100" y2="35" transform="rotate(${-120+i*12} 100 100)"/>`).join('');
+  return `<div class="tuner dial-tuner" aria-label="${tt('label')}"><div class="pitch-dial"><svg viewBox="0 0 200 185" aria-hidden="true">${ticks}<text x="30" y="158">♭</text><text x="170" y="158">♯</text></svg><div class="dial-reading"><strong id="pitchNote">—</strong><span id="pitchCents"></span></div></div><div id="pitchStatus" class="dial-status">${tt('idle')}</div><button id="micToggle" type="button" aria-pressed="false">${tt('on')}</button><div class="reference-notes"><p>${es?'Escucha e imita':'Listen and match'}</p><div class="reference-buttons">${[48,52,55,60,64,67].map(midi=>`<button type="button" data-note="${midi}" aria-pressed="false" aria-label="${es?'Escuchar':'Play'} ${pitchInfo(440*2**((midi-69)/12)).note}">${pitchInfo(440*2**((midi-69)/12)).note}</button>`).join('')}</div><small>${es?'Elige una nota cómoda. Escucha primero; canta después.':'Choose a comfortable note. Listen first; sing afterwards.'}</small></div><small>${tt('privacy')}</small></div>`;
+}
+function displayPitch(info,status=tt('listen')) {
+  if(!$('pitchNote'))return;
+  $('pitchNote').textContent=info?info.note:'—';
+  $('pitchCents').textContent=info?`${info.cents>0?'+':''}${info.cents} ¢`:'';
+  $('pitchStatus').textContent=info?tt(Math.abs(info.cents)<=10?'tuned':info.cents<0?'low':'high'):status;
+  const index=info?Math.max(0,Math.min(20,Math.round((info.cents+50)/5))):-1;
+  document.querySelectorAll('[data-tick]').forEach(tick=>{
+    tick.classList.toggle('lit',Number(tick.dataset.tick)===index);
+    tick.classList.toggle('centered',!!info&&Math.abs(info.cents)<=10);
+  });
+}
+let referenceTone=null,referenceRequest=0;
+function stopReference(){
+  referenceRequest++;
+  if(referenceTone){referenceTone.oscillator.onended=null;referenceTone.oscillator.stop();referenceTone.context.close().catch(()=>{});referenceTone=null;}
+  document.querySelectorAll('[data-note]').forEach(button=>button.setAttribute('aria-pressed','false'));
+}
+async function playReference(midi){
+  const same=referenceTone?.midi===midi;
+  stopReference();if(same)return;
+  const request=referenceRequest;
+  let context;
+  try{
+    const Audio=window.AudioContext||window.webkitAudioContext;
+    context=new Audio();await context.resume();
+    if(request!==referenceRequest){await context.close();return;}
+    const oscillator=context.createOscillator(),gain=context.createGain(),now=context.currentTime;
+    oscillator.type='sine';oscillator.frequency.value=440*2**((midi-69)/12);
+    gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(.12,now+.06);gain.gain.setValueAtTime(.12,now+1.2);gain.gain.linearRampToValueAtTime(0,now+1.5);
+    oscillator.connect(gain);gain.connect(context.destination);
+    referenceTone={oscillator,context,midi};
+    document.querySelector(`[data-note="${midi}"]`)?.setAttribute('aria-pressed','true');
+    displayPitch(null,data.settings.lang==='es'?'Escucha la referencia':'Listen to the reference');
+    oscillator.onended=()=>{if(referenceTone?.oscillator!==oscillator)return;referenceTone=null;context.close().catch(()=>{});document.querySelectorAll('[data-note]').forEach(button=>button.setAttribute('aria-pressed','false'));displayPitch(null,tt(tuner?'listen':'idle'));};
+    oscillator.start();oscillator.stop(now+1.5);
+  }catch{if(context)context.close().catch(()=>{});notify(data.settings.lang==='es'?'No se pudo reproducir la nota.':'Could not play the note.');}
 }
 // YIN normalized difference: choose the first reliable period, not a harmonic peak.
 function detectPitch(input, sampleRate) {
@@ -148,9 +187,10 @@ function syncTuner() {
   if(!$('micToggle')) return;
   $('micToggle').textContent=tt(tuner?'off':tunerPending?'pending':'on');
   $('micToggle').setAttribute('aria-pressed',String(!!tuner));
-  if(!tuner) {$('pitchNote').textContent='—';$('pitchStatus').textContent=tt('idle');$('pitchCents').textContent='';$('pitchNeedle').hidden=true;}
+  if(!tuner)displayPitch(null,tt('idle'));
 }
 function stopTuner() {
+  stopReference();
   tunerRequest++; tunerPending=false;
   if(tuner){clearInterval(tuner.interval);tuner.stream.getTracks().forEach(track=>track.stop());tuner.source.disconnect();tuner.context.close().catch(()=>{});tuner=null;}
   syncTuner();
@@ -179,24 +219,16 @@ async function toggleTuner() {
 }
 function readPitch() {
   if(!tuner || !$('pitchNote'))return;
+  if(referenceTone){tuner.recent=[];return;}
   tuner.analyser.getFloatTimeDomainData(tuner.buffer);
   const frequency=detectPitch(tuner.buffer,tuner.context.sampleRate);
-  if(!frequency){tuner.recent=[];tuner.smoothedCents=null;tuner.lastNote=null;$('pitchNote').textContent='—';$('pitchCents').textContent='';$('pitchStatus').textContent=tt('listen');$('pitchNeedle').hidden=true;return;}
+  if(!frequency){tuner.recent=[];displayPitch(null);return;}
   tuner.recent.push(frequency);if(tuner.recent.length>3)tuner.recent.shift();
-  const sorted=[...tuner.recent].sort((a,b)=>a-b),info=pitchInfo(sorted[Math.floor(sorted.length/2)]);
-  $('pitchNote').textContent=info.note;
-  $('pitchCents').textContent=`${info.cents>0?'+':''}${info.cents} ¢`;
-  $('pitchStatus').textContent=tt(Math.abs(info.cents)<=10?'tuned':info.cents<0?'low':'high');
-  // Dampen small pitch fluctuations while keeping the note and cents readout exact.
-  // Reset the filter on note changes: cents are relative to each note's center.
-  if(tuner.lastNote!==info.note || tuner.smoothedCents==null) tuner.smoothedCents=info.cents;
-  else tuner.smoothedCents+=(info.cents-tuner.smoothedCents)*.28;
-  tuner.lastNote=info.note;
-  $('pitchNeedle').hidden=false;$('pitchNeedle').style.left=`${50+tuner.smoothedCents}%`;
-  $('pitchNeedle').classList.toggle('in-tune',Math.abs(info.cents)<=10);
+  const sorted=[...tuner.recent].sort((a,b)=>a-b);
+  displayPitch(pitchInfo(sorted[Math.floor(sorted.length/2)]));
 }
 
-function renderTraining(){const focusId=document.activeElement?.id;const s=data.session,e=current(),b=blocks[e.b];
+function renderTraining(){stopReference();const focusId=document.activeElement?.id;const s=data.session,e=current(),b=blocks[e.b];
 $('app').classList.add('training-screen');
 $('app').innerHTML=`<section class="card training-session ${e.b>=2?'vocal-session':''}">
   <div class="training-head"><span class="eyebrow">VOCALFLOW · ${t('daily')}</span><h1>${tr(e.name)}</h1><div class="section-heading"><span class="pill">${t('block')} ${e.b+1} ${t('of')} 5</span></div></div>
@@ -212,7 +244,7 @@ $('app').innerHTML=`<section class="card training-session ${e.b>=2?'vocal-sessio
   <div class="controls"><button id="previous">${t('previous')}</button><button id="pause" class="primary"></button><button id="next">${t('next')}</button></div>
 
 </section>`;
-if(e.b<3)stopTuner();const tunerPanel=document.querySelector('.optional-tuner');if(tunerPanel)tunerPanel.ontoggle=()=>{if(!tunerPanel.open)stopTuner();};if($('micToggle')){$('micToggle').onclick=toggleTuner;syncTuner();}
+if(e.b<3)stopTuner();const tunerPanel=document.querySelector('.optional-tuner');if(tunerPanel)tunerPanel.ontoggle=()=>{if(!tunerPanel.open)stopTuner();};if($('micToggle')){$('micToggle').onclick=toggleTuner;document.querySelectorAll('[data-note]').forEach(button=>button.onclick=()=>playReference(Number(button.dataset.note)));syncTuner();}
 $('trainingAuto').onchange=event=>{tick();data.settings.auto=event.target.checked;$('auto').checked=data.settings.auto;save();updateDisplay();};$('previous').disabled=s.index===0;$('previous').onclick=()=>move(-1);$('next').onclick=()=>move(1);$('pause').onclick=togglePause;$('finish').onclick=()=>{pauseForDialog();if(confirm(t('confirmFinish')))finish();};$('reset').onclick=()=>{pauseForDialog();if(confirm(t('confirmReset'))){const routine=s.routine;finish(false);data.settings.routine=routine;start();}};updateDisplay();if(focusId&&$(focusId)&&!$(focusId).disabled)$(focusId).focus({preventScroll:true});}
 function updateDisplay(){if(screen!=='training'||!data.session)return;const s=data.session,list=timeline(s.routine),e=list[s.index],elapsed=s.spent[s.index],remaining=e.duration-elapsed,percent=s.spent.reduce((a,x)=>a+x,0)/list.reduce((a,x)=>a+x.duration,0)*100;const blockTotal=list.filter(x=>x.b===e.b).reduce((a,x)=>a+x.duration,0),blockSpent=list.reduce((a,x,i)=>a+(x.b===e.b?s.spent[i]:0),0);updateVocalGuide(e,elapsed);$('time').textContent=fmt(remaining);$('timerRing').style.strokeDashoffset=817*elapsed/e.duration;$('percent').textContent=`${Math.floor(percent)}%`;$('progress').value=percent;$('blockPercent').textContent=`${Math.floor(blockSpent/blockTotal*100)}%`;$('blockProgress').value=blockSpent/blockTotal*100;$('pause').textContent=remaining<=0?t('ready'):s.running?t('pause'):(data.settings.lang==='es'?'Continuar':'Resume');$('pause').disabled=remaining<=0;$('pause').classList.toggle('primary',remaining>0);$('next').classList.toggle('primary',remaining<=0);$('next').textContent=s.index===list.length-1?(data.settings.lang==='es'?'Finalizar':'Finish'):remaining<=0?t('next'):(data.settings.lang==='es'?'Saltar':'Skip');$('next').setAttribute('aria-label',s.index===list.length-1?t('finish'):remaining<=0?t('next'):(data.settings.lang==='es'?'Saltar este ejercicio':'Skip this exercise'));$('app').classList.toggle('paused',!s.running);let phase=remaining<=0?(data.settings.lang==='es'?'LISTO':'DONE'):!s.running?t('paused'):(data.settings.lang==='es'?'SIN PRISA':'TAKE IT EASY');if(e.b===0){const cycle=elapsed%12;if(s.running&&remaining>0)phase=t(cycle<4?'inhale':'exhale');$('breathOrb').style.setProperty('--breath',cycle<4?.7+.4*cycle/4:1.1-.4*(cycle-4)/8);}else{$('breathOrb').style.setProperty('--breath',1);}
 if(e.b===1){const paths=['M 20 35 C 20 0 130 0 130 35 C 130 70 20 70 20 35','M 20 35 C 20 0 130 0 130 35 C 130 70 20 70 20 35','M 75 35 C 0 -20 0 90 75 35 C 150 -20 150 90 75 35','M 75 35 C 20 -15 130 -15 75 35 C 20 85 130 85 75 35'];$('motionPath').setAttribute('d',paths[e.j]);$('motionDot').style.offsetPath=`path('${paths[e.j]}')`;$('motionDot').style.offsetDistance=`${(elapsed%8)/8*100*(e.j===1?-1:1)}%`;}

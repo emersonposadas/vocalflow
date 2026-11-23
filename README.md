@@ -18,7 +18,9 @@ Visita `http://localhost:8000`. No necesita instalación ni backend.
 - **Anterior / Saltar:** cambia de ejercicio. Saltar no cuenta como completarlo.
 - **Opciones de sesión:** permite cambiar el avance automático, reiniciar o finalizar.
 - **Guía vocal:** las consonantes alternan 6 segundos de sonido y 4 de descanso, sin acelerar las indicaciones en la rutina rápida. El círculo muestra el tiempo; el ejemplo visual indica qué sonido hacer.
-- **Afinador opcional:** en falsete y canción, despliega el panel y activa el micrófono para ver la nota más cercana. No reproduce un ejemplo ni evalúa tu técnica.
+- **Afinador opcional:** en falsete y canción, despliega el panel y activa el micrófono para ver la nota más cercana. El dial ilumina marcas fijas: el centro indica afinación cercana a la nota detectada. No evalúa tu técnica.
+
+- **Notas de referencia:** pulsa Do3, Mi3, Sol3, Do4, Mi4 o Sol4 para escuchar un tono de 1,5 segundos y después imitarlo en una altura cómoda. Pulsa de nuevo para detenerlo. No necesitan micrófono; la detección se suspende mientras suenan.
 
 La sesión se recupera en pausa al recargar. Ajustes permite cambiar el idioma, los sonidos y borrar el historial.
 
